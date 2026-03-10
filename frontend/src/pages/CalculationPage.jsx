@@ -3,18 +3,18 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "../services/api";
 
 function CalculationPage() {
-  const { marketId } = useParams();
+  const { eventId } = useParams();
   const navigate = useNavigate();
 
-  const [marketData, setMarketData] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [selected, setSelected] = useState(null);
   const [result, setResult] = useState(null);
   const [fetchError, setFetchError] = useState("");
   const [submitError, setSubmitError] = useState("");
-  const [touched, setTouched] = useState({});
 
   const [form, setForm] = useState({
     sourceSide: "Back",
-    margin: "0",
+    margin: "5",
     title: "",
     runs: "",
     initialMean: "",
@@ -23,86 +23,55 @@ function CalculationPage() {
   });
 
   useEffect(() => {
-    const fetchMarket = async () => {
+    const fetchData = async () => {
       try {
         setFetchError("");
-        const response = await api.get(`/markets/source/${marketId}`);
-        const data = response.data.data;
+        const response = await api.get(`/markets/fancies/${eventId}`);
+        const fetchedRows = Array.isArray(response.data.data) ? response.data.data : [];
+        setRows(fetchedRows);
 
-        setMarketData(data);
-
-        setForm((prev) => {
-          const next = { ...prev };
-          if (!prev.title.trim()) {
-            next.title = data?.marketName || "";
-          }
-          return next;
-        });
-      } catch (err) {
-        setFetchError("Unable to fetch market data");
+        if (fetchedRows.length > 0) {
+          setSelected(fetchedRows[0]);
+        }
+      } catch (error) {
+        setFetchError("Unable to fetch fancy list");
       }
     };
 
-    fetchMarket();
-  }, [marketId]);
+    fetchData();
+  }, [eventId]);
 
-  const fieldErrors = useMemo(() => {
-    const errors = {};
+  useEffect(() => {
+    if (!selected) return;
 
-    if (!form.title.trim()) {
-      errors.title = "Title is required";
-    }
+    setForm((prev) => ({
+      ...prev,
+      title: selected.runnerName || prev.title || "",
+      initialMean:
+        prev.initialMean && prev.initialMean !== ""
+          ? prev.initialMean
+          : selected.sourceBack != null
+          ? String(selected.sourceBack)
+          : ""
+    }));
 
-    const margin = Number(form.margin);
-    if (form.margin === "") {
-      errors.margin = "Margin is required";
-    } else if (!Number.isFinite(margin) || margin < 0 || margin > 100) {
-      errors.margin = "Margin must be between 0 and 100";
-    }
-
-    const runs = Number(form.runs);
-    if (form.runs === "") {
-      errors.runs = "Runs is required";
-    } else if (!Number.isFinite(runs) || runs < 0) {
-      errors.runs = "Runs must be a non negative number";
-    }
-
-    const initialMean = Number(form.initialMean);
-    if (form.initialMean === "") {
-      errors.initialMean = "Initial Mean is required";
-    } else if (!Number.isFinite(initialMean) || initialMean <= 0) {
-      errors.initialMean = "Initial Mean must be greater than 0";
-    }
-
-    const initialStdDev = Number(form.initialStdDev);
-    if (form.initialStdDev === "") {
-      errors.initialStdDev = "Initial Std Dev is required";
-    } else if (!Number.isFinite(initialStdDev) || initialStdDev <= 0) {
-      errors.initialStdDev = "Initial Std Dev must be greater than 0";
-    }
-
-    const rateDiff = Number(form.rateDiff);
-    if (form.rateDiff === "") {
-      errors.rateDiff = "Rate Diff is required";
-    } else if (!Number.isFinite(rateDiff) || rateDiff < 0) {
-      errors.rateDiff = "Rate Diff must be a non negative number";
-    }
-
-    return errors;
-  }, [form]);
-
-  const isFormValid = Object.keys(fieldErrors).length === 0;
+    setResult(null);
+    setSubmitError("");
+  }, [selected]);
 
   const calculatedPreview = useMemo(() => {
     const initialMean = Number(form.initialMean);
     const initialStdDev = Number(form.initialStdDev);
 
     const sourceBack =
-      marketData?.sourceBack != null ? Number(marketData.sourceBack) : NaN;
+      selected?.sourceBack != null ? Number(selected.sourceBack) : NaN;
     const sourceLay =
-      marketData?.sourceLay != null ? Number(marketData.sourceLay) : NaN;
+      selected?.sourceLay != null ? Number(selected.sourceLay) : NaN;
 
-    const currentMean = form.sourceSide === "Lay" ? sourceLay : sourceBack;
+    const currentMean =
+      form.sourceSide === "Lay"
+        ? (Number.isFinite(sourceLay) ? sourceLay : initialMean)
+        : (Number.isFinite(sourceBack) ? sourceBack : initialMean);
 
     if (
       !Number.isFinite(initialMean) ||
@@ -117,7 +86,7 @@ function CalculationPage() {
       };
     }
 
-    const currentStdDev = currentMean * (initialStdDev / initialMean);
+    const currentStdDev = initialStdDev * (currentMean / initialMean);
 
     return {
       currentMean: Number(currentMean.toFixed(2)),
@@ -127,8 +96,8 @@ function CalculationPage() {
     form.sourceSide,
     form.initialMean,
     form.initialStdDev,
-    marketData?.sourceBack,
-    marketData?.sourceLay
+    selected?.sourceBack,
+    selected?.sourceLay
   ]);
 
   const handleChange = (e) => {
@@ -139,37 +108,23 @@ function CalculationPage() {
     }));
   };
 
-  const handleBlur = (e) => {
-    const { name } = e.target;
-    setTouched((prev) => ({
-      ...prev,
-      [name]: true
-    }));
-  };
-
-  const markAllTouched = () => {
-    setTouched({
-      margin: true,
-      title: true,
-      runs: true,
-      initialMean: true,
-      initialStdDev: true,
-      rateDiff: true
-    });
+  const handleUseRow = (row) => {
+    setSelected(row);
   };
 
   const handleCalculate = async () => {
+    console.log("CALCULATE CLICKED");
     try {
       setSubmitError("");
 
-      if (!isFormValid) {
-        markAllTouched();
-        setSubmitError("Please fix the highlighted fields");
+      if (!selected) {
+        setSubmitError("Please select a fancy row first");
         return;
       }
 
       const response = await api.post("/markets/calculate", {
-        marketId,
+        eventId,
+        marketId: selected.marketId,
         marketTitle: form.title,
         title: form.title,
         source: form.sourceSide,
@@ -179,607 +134,461 @@ function CalculationPage() {
         runs: Number(form.runs),
         initialMean: Number(form.initialMean),
         initialStdDev: Number(form.initialStdDev),
-        rateDiff: Number(form.rateDiff)
+        rateDiff: Number(form.rateDiff),
+        sourceData: selected
       });
 
       setResult(response.data.data);
-    } catch (err) {
+    } catch (error) {
       setSubmitError("Calculation failed");
     }
   };
 
   return (
     <div style={pageStyle}>
-      <div style={pageShellStyle}>
-        <div style={topBarStyle}>
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            style={backButtonStyle}
-          >
-            ← Back
-          </button>
+      <div style={topBarStyle}>
+        <button type="button" onClick={() => navigate("/")} style={backButtonStyle}>
+          ← Back
+        </button>
+        <div style={titleStyle}>Fancy Calculation</div>
+      </div>
 
-          <div>
-            <div style={pageEyebrowStyle}>Fancy Line Market</div>
-            <div style={pageTitleStyle}>Market {marketId}</div>
+      {fetchError ? <div style={errorStyle}>{fetchError}</div> : null}
+      {submitError ? <div style={errorStyle}>{submitError}</div> : null}
+
+      <div style={layoutStyle}>
+        <div style={leftCardStyle}>
+          <div style={sectionTitleStyle}>Fancy List</div>
+
+          <div style={tableWrapStyle}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Runner</th>
+                  <th style={thStyle}>Back</th>
+                  <th style={thStyle}>Lay</th>
+                  <th style={thStyle}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const isSelected = selected?.marketId === row.marketId;
+
+                  return (
+                    <tr key={row.id || row.marketId}>
+                      <td style={tdStyle}>{row.runnerName}</td>
+                      <td style={tdStyle}>{row.sourceBack ?? "N/A"}</td>
+                      <td style={tdStyle}>{row.sourceLay ?? "N/A"}</td>
+                      <td style={tdStyle}>
+                        <button
+                          type="button"
+                          onClick={() => handleUseRow(row)}
+                          style={isSelected ? selectedButtonStyle : useButtonStyle}
+                        >
+                          {isSelected ? "Selected" : "Use"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        </div>
 
-        <div style={marketHeaderCardStyle}>
-          {fetchError ? (
-            <div style={errorTextStyle}>{fetchError}</div>
-          ) : marketData ? (
-            <div style={marketStripStyle}>
-              <div style={marketStripLeftStyle}>
-                <div style={marketStripLabelStyle}>Source Market</div>
-                <div style={marketStripTitleStyle}>
-                  {marketData.marketName || "Market"}
-                </div>
-              </div>
+          <div style={sectionTitleStyle}>Source Section</div>
 
-              <div style={marketRateBlockStyle}>
-                <div style={marketRateBlockHeaderStyle}>Back</div>
-                <div style={marketBackValueStyle}>
-                  {marketData.sourceBack ?? "N/A"}
-                </div>
-              </div>
-
-              <div style={marketRateBlockStyle}>
-                <div style={marketRateBlockHeaderStyle}>Lay</div>
-                <div style={marketLayValueStyle}>
-                  {marketData.sourceLay ?? "N/A"}
-                </div>
+          {selected ? (
+            <div style={sourceBoxStyle}>
+              <div style={sourceNameStyle}>{selected.runnerName || "N/A"}</div>
+              <div style={sourceRatesStyle}>
+                <div>Back: {selected.sourceBack ?? "N/A"}</div>
+                <div>Lay: {selected.sourceLay ?? "N/A"}</div>
               </div>
             </div>
           ) : (
-            <div style={loadingTextStyle}>Loading market...</div>
+            <div style={emptyStyle}>No source selected</div>
           )}
+
+          <div style={sectionTitleStyle}>Calculation Fields</div>
+
+          <FieldRow
+            label="Source Side"
+            field={
+              <select
+                name="sourceSide"
+                value={form.sourceSide}
+                onChange={handleChange}
+                style={inputStyle}
+              >
+                <option value="Back">Back</option>
+                <option value="Lay">Lay</option>
+              </select>
+            }
+          />
+
+          <FieldRow
+            label="Margin"
+            field={
+              <input
+                name="margin"
+                value={form.margin}
+                onChange={handleChange}
+                style={inputStyle}
+              />
+            }
+          />
+
+          <FieldRow
+            label="Title"
+            field={
+              <input
+                name="title"
+                value={form.title}
+                onChange={handleChange}
+                style={inputStyle}
+              />
+            }
+          />
+
+          <FieldRow
+            label="Runs"
+            field={
+              <input
+                name="runs"
+                value={form.runs}
+                onChange={handleChange}
+                style={inputStyle}
+              />
+            }
+          />
+
+          <FieldRow
+            label="Initial Mean"
+            field={
+              <input
+                name="initialMean"
+                value={form.initialMean}
+                onChange={handleChange}
+                style={inputStyle}
+              />
+            }
+          />
+
+          <FieldRow
+            label="Initial Std Dev"
+            field={
+              <input
+                name="initialStdDev"
+                value={form.initialStdDev}
+                onChange={handleChange}
+                style={inputStyle}
+              />
+            }
+          />
+
+          <FieldRow
+            label="Rate Diff"
+            field={
+              <input
+                name="rateDiff"
+                value={form.rateDiff}
+                onChange={handleChange}
+                style={inputStyle}
+              />
+            }
+          />
+
+          <FieldRow
+            label="Current Mean"
+            field={<StaticValue value={calculatedPreview.currentMean || "N/A"} />}
+          />
+
+          <FieldRow
+            label="Current Std Dev"
+            field={<StaticValue value={calculatedPreview.currentStdDev || "N/A"} />}
+          />
+
+          <button
+            type="button"
+            onClick={handleCalculate}
+            disabled={!selected}
+            style={{
+              ...calcButtonStyle,
+              opacity: !selected ? 0.6 : 1
+            }}
+          >
+            Calculate
+          </button>
         </div>
 
-        {submitError ? <div style={errorBoxStyle}>{submitError}</div> : null}
+        <div style={rightCardStyle}>
+          <div style={sectionTitleStyle}>Final Display</div>
 
-        <div style={layoutStyle}>
-          <div style={leftPanelStyle}>
-            <div style={panelHeaderStyle}>Market Inputs</div>
+          {result ? (
+            <div style={resultBoxStyle}>
+              <div style={resultTitleStyle}>{result.displayTitle}</div>
 
-            <div style={sheetBoxStyle}>
-              <SheetRow
-                label="Source Side"
-                field={
-                  <select
-                    name="sourceSide"
-                    value={form.sourceSide}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    style={sheetInputStyle}
-                  >
-                    <option value="Back">Back</option>
-                    <option value="Lay">Lay</option>
-                  </select>
-                }
-                sideValue={
-                  form.sourceSide === "Lay"
-                    ? marketData?.sourceLay ?? "N/A"
-                    : marketData?.sourceBack ?? "N/A"
-                }
-              />
-
-              <SheetRow
-                label="Margin"
-                field={
-                  <FieldInput
-                    name="margin"
-                    value={form.margin}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    error={touched.margin ? fieldErrors.margin : ""}
-                  />
-                }
-              />
-
-              <SheetRow
-                label="Title"
-                field={
-                  <FieldInput
-                    name="title"
-                    value={form.title}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    error={touched.title ? fieldErrors.title : ""}
-                  />
-                }
-              />
-
-              <SheetRow
-                label="Runs"
-                field={
-                  <FieldInput
-                    name="runs"
-                    value={form.runs}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    error={touched.runs ? fieldErrors.runs : ""}
-                  />
-                }
-              />
-
-              <SheetRow
-                label="Initial Mean"
-                field={
-                  <FieldInput
-                    name="initialMean"
-                    value={form.initialMean}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    error={touched.initialMean ? fieldErrors.initialMean : ""}
-                  />
-                }
-              />
-
-              <SheetRow
-                label="Initial Std Dev"
-                field={
-                  <FieldInput
-                    name="initialStdDev"
-                    value={form.initialStdDev}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    error={touched.initialStdDev ? fieldErrors.initialStdDev : ""}
-                  />
-                }
-              />
-
-              <SheetRow
-                label="Rate Diff"
-                field={
-                  <FieldInput
-                    name="rateDiff"
-                    value={form.rateDiff}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    error={touched.rateDiff ? fieldErrors.rateDiff : ""}
-                  />
-                }
-              />
-
-              <SheetRow
-                label="Current Mean"
-                field={<StaticCell value={calculatedPreview.currentMean || "N/A"} />}
-              />
-
-              <SheetRow
-                label="Current Std Dev"
-                field={<StaticCell value={calculatedPreview.currentStdDev || "N/A"} />}
-              />
+              <table style={resultTableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}></th>
+                    <th style={thStyle}>Back</th>
+                    <th style={thStyle}>Lay</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={labelTdStyle}>Yes</td>
+                    <td style={backTdStyle}>{result.backYes}</td>
+                    <td style={layTdStyle}>{result.layYes}</td>
+                  </tr>
+                  <tr>
+                    <td style={labelTdStyle}>No</td>
+                    <td style={backTdStyle}>{result.backNo}</td>
+                    <td style={layTdStyle}>{result.layNo}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-
-            <button
-              onClick={handleCalculate}
-              disabled={!isFormValid}
-              style={{
-                ...calculateButtonStyle,
-                opacity: !isFormValid ? 0.55 : 1,
-                cursor: !isFormValid ? "not-allowed" : "pointer"
-              }}
-            >
-              Calculate
-            </button>
-          </div>
-
-          <div style={rightPanelStyle}>
-            <div style={displayCaptionStyle}>Display as this</div>
-
-            {result ? (
-              <div style={lgDisplayBoxStyle}>
-                <div style={lgTitleStyle}>
-                  {result.displayTitle || `${form.title} :: ${form.runs} runs`}
-                </div>
-
-                <div style={lgHeaderRowStyle}>
-                  <div style={lgBlankHeadStyle}></div>
-                  <div style={lgBackHeadStyle}>Back</div>
-                  <div style={lgLayHeadStyle}>Lay</div>
-                </div>
-
-                <div style={lgDataRowStyle}>
-                  <div style={lgRowLabelStyle}>Yes</div>
-                  <div style={lgBackCellStyle}>
-                    {result.backYes ?? result.yesBack ?? "N/A"}
-                  </div>
-                  <div style={lgLayCellStyle}>
-                    {result.layYes ?? result.yesLay ?? "N/A"}
-                  </div>
-                </div>
-
-                <div style={lgDataRowStyle}>
-                  <div style={lgRowLabelStyle}>No</div>
-                  <div style={lgBackCellStyle}>
-                    {result.backNo ?? result.noBack ?? "N/A"}
-                  </div>
-                  <div style={lgLayCellStyle}>
-                    {result.layNo ?? result.noLay ?? "N/A"}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div style={emptyDisplayStyle}>
-                Fill inputs and click Calculate to see the final display.
-              </div>
-            )}
-          </div>
+          ) : (
+            <div style={emptyStyle}>Calculate to view final display</div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function SheetRow({ label, field, sideValue = "" }) {
+function FieldRow({ label, field }) {
   return (
-    <div style={sheetRowStyle}>
-      <div style={sheetLabelStyle}>{label}</div>
-      <div style={sheetFieldStyle}>{field}</div>
-      <div style={sheetSideValueStyle}>{sideValue}</div>
+    <div style={rowStyle}>
+      <div style={labelStyle}>{label}</div>
+      <div style={fieldStyle}>{field}</div>
     </div>
   );
 }
 
-function FieldInput({ name, value, onChange, onBlur, error }) {
-  return (
-    <>
-      <input
-        name={name}
-        value={value}
-        onChange={onChange}
-        onBlur={onBlur}
-        style={{
-          ...sheetInputStyle,
-          border: error ? "1px solid #ff6b6b" : "1px solid #55616d"
-        }}
-      />
-      {error ? <div style={inlineErrorStyle}>{error}</div> : null}
-    </>
-  );
-}
-
-function StaticCell({ value }) {
-  return <div style={staticCellStyle}>{value}</div>;
+function StaticValue({ value }) {
+  return <div style={staticStyle}>{value}</div>;
 }
 
 const pageStyle = {
   minHeight: "100vh",
-  background:
-    "radial-gradient(circle at top left, #3a3f47 0%, #2f333a 35%, #262a31 100%)",
-  padding: "20px",
-  boxSizing: "border-box",
-  color: "#f3f4f6"
-};
-
-const pageShellStyle = {
-  maxWidth: "1280px",
-  margin: "0 auto"
+  background: "#f3f4f6",
+  padding: "24px"
 };
 
 const topBarStyle = {
   display: "flex",
   alignItems: "center",
-  gap: "14px",
+  gap: "12px",
   marginBottom: "18px"
 };
 
 const backButtonStyle = {
-  border: "1px solid #5c6672",
-  background: "linear-gradient(180deg, #434954 0%, #373d47 100%)",
-  color: "#f9fafb",
+  border: "1px solid #d1d5db",
+  background: "#ffffff",
   borderRadius: "8px",
-  padding: "10px 14px",
-  fontSize: "13px",
-  fontWeight: "700",
+  padding: "10px 12px",
   cursor: "pointer",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.25)"
+  fontWeight: "700"
 };
 
-const pageEyebrowStyle = {
-  fontSize: "12px",
-  textTransform: "uppercase",
-  letterSpacing: "0.12em",
-  color: "#9aa4b2",
-  marginBottom: "2px"
-};
-
-const pageTitleStyle = {
-  fontSize: "34px",
+const titleStyle = {
+  fontSize: "28px",
   fontWeight: "800",
-  color: "#ffffff",
-  lineHeight: 1.1
-};
-
-const marketHeaderCardStyle = {
-  background: "linear-gradient(180deg, #353a42 0%, #2c3138 100%)",
-  border: "1px solid #4f5863",
-  borderRadius: "14px",
-  padding: "14px 16px",
-  marginBottom: "16px",
-  boxShadow: "0 8px 22px rgba(0,0,0,0.22)"
-};
-
-const marketStripStyle = {
-  display: "grid",
-  gridTemplateColumns: "1fr 110px 110px",
-  gap: "12px",
-  alignItems: "stretch"
-};
-
-const marketStripLeftStyle = {
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center"
-};
-
-const marketStripLabelStyle = {
-  fontSize: "12px",
-  textTransform: "uppercase",
-  letterSpacing: "0.08em",
-  color: "#9aa4b2",
-  marginBottom: "4px"
-};
-
-const marketStripTitleStyle = {
-  fontSize: "20px",
-  fontWeight: "700",
-  color: "#ffffff"
-};
-
-const marketRateBlockStyle = {
-  borderRadius: "12px",
-  overflow: "hidden",
-  border: "1px solid #4f5863"
-};
-
-const marketRateBlockHeaderStyle = {
-  textAlign: "center",
-  fontSize: "13px",
-  fontWeight: "700",
-  color: "#111827",
-  background: "#d1d5db",
-  padding: "6px 8px"
-};
-
-const marketBackValueStyle = {
-  textAlign: "center",
-  padding: "14px 8px",
-  fontSize: "24px",
-  background: "linear-gradient(180deg, #8fcbff 0%, #69b7ff 100%)",
-  color: "#0f172a",
-  fontWeight: "800"
-};
-
-const marketLayValueStyle = {
-  textAlign: "center",
-  padding: "14px 8px",
-  fontSize: "24px",
-  background: "linear-gradient(180deg, #ffc0d0 0%, #ff93b0 100%)",
-  color: "#0f172a",
-  fontWeight: "800"
-};
-
-const loadingTextStyle = {
-  color: "#d1d5db"
-};
-
-const errorTextStyle = {
-  color: "#ff9d9d"
-};
-
-const errorBoxStyle = {
-  background: "rgba(127, 29, 29, 0.35)",
-  border: "1px solid #b94a48",
-  color: "#ffe0e0",
-  padding: "12px 14px",
-  borderRadius: "10px",
-  marginBottom: "14px",
-  boxShadow: "0 4px 12px rgba(0,0,0,0.18)"
+  color: "#111827"
 };
 
 const layoutStyle = {
   display: "grid",
-  gridTemplateColumns: "540px 360px",
-  gap: "34px",
-  alignItems: "start"
+  gridTemplateColumns: "1fr 360px",
+  gap: "24px",
+  maxWidth: "1200px"
 };
 
-const leftPanelStyle = {
-  background: "linear-gradient(180deg, #353a42 0%, #2b3038 100%)",
-  border: "1px solid #4f5863",
-  borderRadius: "14px",
-  padding: "16px",
-  boxShadow: "0 10px 24px rgba(0,0,0,0.24)"
+const leftCardStyle = {
+  background: "#ffffff",
+  border: "1px solid #d1d5db",
+  borderRadius: "12px",
+  padding: "18px"
 };
 
-const panelHeaderStyle = {
+const rightCardStyle = {
+  background: "#ffffff",
+  border: "1px solid #d1d5db",
+  borderRadius: "12px",
+  padding: "18px",
+  alignSelf: "start"
+};
+
+const sectionTitleStyle = {
   fontSize: "18px",
   fontWeight: "800",
-  color: "#ffffff",
-  marginBottom: "12px"
+  marginBottom: "14px",
+  color: "#111827"
 };
 
-const sheetBoxStyle = {
-  display: "grid",
-  gap: "4px"
+const sourceBoxStyle = {
+  background: "#f9fafb",
+  border: "1px solid #e5e7eb",
+  borderRadius: "10px",
+  padding: "14px",
+  marginBottom: "14px"
 };
 
-const sheetRowStyle = {
-  display: "grid",
-  gridTemplateColumns: "140px 170px 90px",
-  alignItems: "center",
-  gap: "10px"
-};
-
-const sheetLabelStyle = {
-  fontSize: "15px",
-  color: "#ffffff",
-  fontWeight: "600"
-};
-
-const sheetFieldStyle = {
-  minHeight: "38px"
-};
-
-const sheetSideValueStyle = {
+const sourceNameStyle = {
+  fontWeight: "700",
   fontSize: "18px",
+  marginBottom: "8px",
+  color: "#111827"
+};
+
+const sourceRatesStyle = {
+  display: "flex",
+  gap: "20px",
+  fontWeight: "600",
+  color: "#374151"
+};
+
+const tableWrapStyle = {
+  overflowX: "auto",
+  marginBottom: "16px"
+};
+
+const tableStyle = {
+  width: "100%",
+  borderCollapse: "collapse"
+};
+
+const thStyle = {
+  padding: "12px",
+  textAlign: "center",
+  background: "#f3f4f6",
+  borderBottom: "1px solid #e5e7eb"
+};
+
+const tdStyle = {
+  padding: "12px",
+  borderBottom: "1px solid #e5e7eb"
+};
+
+const useButtonStyle = {
+  border: "none",
+  background: "#111827",
   color: "#ffffff",
+  borderRadius: "6px",
+  padding: "8px 12px",
+  fontWeight: "700",
+  cursor: "pointer"
+};
+
+const selectedButtonStyle = {
+  border: "none",
+  background: "#16a34a",
+  color: "#ffffff",
+  borderRadius: "6px",
+  padding: "8px 12px",
   fontWeight: "700"
 };
 
-const sheetInputStyle = {
+const rowStyle = {
+  display: "grid",
+  gridTemplateColumns: "160px 1fr",
+  gap: "12px",
+  alignItems: "start",
+  marginBottom: "12px"
+};
+
+const labelStyle = {
+  paddingTop: "10px",
+  fontWeight: "700",
+  color: "#111827"
+};
+
+const fieldStyle = {};
+
+const inputStyle = {
   width: "100%",
   boxSizing: "border-box",
-  padding: "8px 10px",
-  border: "1px solid #55616d",
-  background: "linear-gradient(180deg, #dce9d3 0%, #cedcbf 100%)",
-  color: "#111827",
-  fontSize: "17px",
-  height: "38px",
+  padding: "10px 12px",
+  border: "1px solid #9ca3af",
   borderRadius: "8px",
-  outline: "none"
+  background: "#dcead4",
+  fontSize: "16px"
 };
 
-const staticCellStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "8px 10px",
+const staticStyle = {
+  padding: "10px 12px",
   border: "1px dashed #8b5cf6",
+  borderRadius: "8px",
   background: "#ffffff",
-  color: "#111827",
-  fontSize: "17px",
-  height: "38px",
-  borderRadius: "8px"
+  fontSize: "16px",
+  color: "#111827"
 };
 
-const inlineErrorStyle = {
-  marginTop: "4px",
-  color: "#ffb4b4",
-  fontSize: "11px"
-};
-
-const calculateButtonStyle = {
-  marginTop: "18px",
-  width: "170px",
+const calcButtonStyle = {
+  marginTop: "10px",
   border: "none",
-  background: "linear-gradient(180deg, #377dff 0%, #2458d8 100%)",
+  background: "#2563eb",
   color: "#ffffff",
   borderRadius: "10px",
   padding: "12px 16px",
   fontSize: "16px",
   fontWeight: "800",
-  boxShadow: "0 8px 18px rgba(37,99,235,0.35)"
+  cursor: "pointer"
 };
 
-const rightPanelStyle = {
-  paddingTop: "18px"
+const errorStyle = {
+  color: "#b91c1c",
+  marginBottom: "12px"
 };
 
-const displayCaptionStyle = {
-  textAlign: "center",
-  color: "#ffffff",
-  fontSize: "18px",
-  fontWeight: "700",
-  marginBottom: "14px"
+const resultBoxStyle = {
+  border: "1px solid #d1d5db",
+  borderRadius: "12px",
+  overflow: "hidden"
 };
 
-const lgDisplayBoxStyle = {
-  width: "290px",
-  margin: "0 auto",
-  border: "1px solid #66707c",
-  borderRadius: "14px",
-  overflow: "hidden",
-  background: "linear-gradient(180deg, #3a3f47 0%, #2f343c 100%)",
-  boxShadow: "0 12px 26px rgba(0,0,0,0.28)"
-};
-
-const lgTitleStyle = {
-  textAlign: "center",
-  fontSize: "24px",
-  color: "#ffffff",
+const resultTitleStyle = {
+  padding: "14px",
+  background: "#f9fafb",
   fontWeight: "800",
-  lineHeight: 1.15,
-  padding: "14px 12px 10px 12px",
-  borderBottom: "1px solid #5a6470"
-};
-
-const lgHeaderRowStyle = {
-  display: "grid",
-  gridTemplateColumns: "70px 110px 110px",
-  alignItems: "center",
-  background: "#2a2f36"
-};
-
-const lgBlankHeadStyle = {};
-
-const lgBackHeadStyle = {
-  textAlign: "center",
   fontSize: "18px",
-  color: "#cfe8ff",
+  textAlign: "center"
+};
+
+const resultTableStyle = {
+  width: "100%",
+  borderCollapse: "collapse"
+};
+
+const labelTdStyle = {
+  padding: "14px",
   fontWeight: "800",
-  padding: "10px 0"
+  borderBottom: "1px solid #e5e7eb"
 };
 
-const lgLayHeadStyle = {
+const backTdStyle = {
+  padding: "14px",
   textAlign: "center",
-  fontSize: "18px",
-  color: "#ffd1dc",
+  background: "#cfe2ff",
   fontWeight: "800",
-  padding: "10px 0"
+  fontSize: "22px",
+  borderBottom: "1px solid #e5e7eb"
 };
 
-const lgDataRowStyle = {
-  display: "grid",
-  gridTemplateColumns: "70px 110px 110px",
-  alignItems: "stretch"
-};
-
-const lgRowLabelStyle = {
-  fontSize: "28px",
-  color: "#ffffff",
-  fontWeight: "700",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "#31363e",
-  borderTop: "1px solid #5a6470"
-};
-
-const lgBackCellStyle = {
+const layTdStyle = {
+  padding: "14px",
   textAlign: "center",
-  fontSize: "34px",
-  fontWeight: "900",
-  color: "#0f172a",
-  background: "linear-gradient(180deg, #9ed3ff 0%, #6bb7ff 100%)",
-  padding: "14px 6px",
-  borderTop: "1px solid #5a6470",
-  borderLeft: "1px solid #5a6470"
+  background: "#ffd1dc",
+  fontWeight: "800",
+  fontSize: "22px",
+  borderBottom: "1px solid #e5e7eb"
 };
 
-const lgLayCellStyle = {
-  textAlign: "center",
-  fontSize: "34px",
-  fontWeight: "900",
-  color: "#111827",
-  background: "linear-gradient(180deg, #ffc2d1 0%, #ff8daa 100%)",
-  padding: "14px 6px",
-  borderTop: "1px solid #5a6470",
-  borderLeft: "1px solid #5a6470"
-};
-
-const emptyDisplayStyle = {
-  width: "290px",
-  margin: "0 auto",
-  padding: "20px",
-  border: "1px dashed #7c8794",
-  borderRadius: "14px",
-  textAlign: "center",
-  color: "#d1d5db",
-  background: "rgba(58,63,71,0.55)"
+const emptyStyle = {
+  color: "#6b7280"
 };
 
 export default CalculationPage;

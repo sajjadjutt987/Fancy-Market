@@ -6,8 +6,9 @@ function safeOdds(value) {
 }
 
 function calculateMarketValues(input, sourceData = {}) {
-  const marketTitle = input.marketTitle || input.title || "";
-  const marketId = input.marketId || "";
+  const marketTitle = input.marketTitle || input.title || sourceData.runnerName || "";
+  const marketId = input.marketId || sourceData.marketId || "";
+  const eventId = input.eventId || sourceData.eventId || "";
   const source = input.source || "";
   const sourceSide = input.sourceSide || "Back";
 
@@ -27,28 +28,16 @@ function calculateMarketValues(input, sourceData = {}) {
       ? Number(sourceData.sourceLay)
       : null;
 
-  // Excel logic:
-  // Current Mean = source value based on Source Side
   const currentMean =
     sourceSide === "Lay"
-      ? sourceLay ?? 0
-      : sourceBack ?? 0;
+      ? (sourceLay ?? initialMean)
+      : (sourceBack ?? initialMean);
 
-  // Excel logic:
-  // Current Std Dev = Initial Std Dev * (Current Mean / Initial Mean)
-  // Equivalent to C18 * (C16 / C15) if:
-  // C18 = Initial Std Dev
-  // C16 = Current Mean
-  // C15 = Initial Mean
   const currentStdDev =
     initialMean > 0 ? initialStdDev * (currentMean / initialMean) : 0;
 
   const normValue =
     currentStdDev > 0 ? normalCDF(runsLine, currentMean, currentStdDev) : 0;
-
-  // Excel formulas:
-  // back yes = 1 / ((1 - NORM.DIST(runs, currentMean, currentStdDev, TRUE)) * (1 - margin))
-  // back no  = 1 / ((NORM.DIST(runs, currentMean, currentStdDev, TRUE)) * (1 - margin))
 
   const backYesRaw =
     (1 - normValue) > 0 && (1 - margin) > 0
@@ -59,10 +48,6 @@ function calculateMarketValues(input, sourceData = {}) {
     normValue > 0 && (1 - margin) > 0
       ? 1 / (normValue * (1 - margin))
       : 100;
-
-  // Excel formulas:
-  // lay yes = if(back yes <= 2, back yes + rateDiff, 1 / (back no - 1) + 1)
-  // lay no  = if(back no  <= 2, back no  + rateDiff, 1 / (back yes - 1) + 1 + rateDiff)
 
   const layYesRaw =
     backYesRaw <= 2
@@ -78,38 +63,32 @@ function calculateMarketValues(input, sourceData = {}) {
       ? 1 / (backYesRaw - 1) + 1 + rateDiff
       : 100;
 
-  const backYes = safeOdds(backYesRaw);
-  const backNo = safeOdds(backNoRaw);
-  const layYes = safeOdds(layYesRaw);
-  const layNo = safeOdds(layNoRaw);
-
   return {
-    marketTitle,
+    eventId,
     marketId,
+    selectionId: sourceData.selectionId || null,
+    marketTitle,
+    runnerName: sourceData.runnerName || marketTitle,
     source,
     sourceSide,
-
     sourceBack: sourceBack != null ? roundTo(sourceBack, 2) : null,
     sourceLay: sourceLay != null ? roundTo(sourceLay, 2) : null,
-
+    gameStatus: sourceData.gameStatus || "",
+    min: sourceData.min ?? null,
+    max: sourceData.max ?? null,
     margin: roundTo(margin, 4),
     marginPercent: roundTo(margin * 100, 2),
-
     runsLine: roundTo(runsLine, 2),
     initialMean: roundTo(initialMean, 2),
     initialStdDev: roundTo(initialStdDev, 2),
     rateDiff: roundTo(rateDiff, 2),
-
     currentMean: roundTo(currentMean, 2),
     currentStdDev: roundTo(currentStdDev, 2),
-
     normValue: roundTo(normValue, 6),
-
-    backYes,
-    backNo,
-    layYes,
-    layNo,
-
+    backYes: safeOdds(backYesRaw),
+    backNo: safeOdds(backNoRaw),
+    layYes: safeOdds(layYesRaw),
+    layNo: safeOdds(layNoRaw),
     displayTitle: `${marketTitle} :: ${roundTo(runsLine, 2)} runs`
   };
 }

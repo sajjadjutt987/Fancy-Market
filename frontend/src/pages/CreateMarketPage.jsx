@@ -2,48 +2,43 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 function CreateMarketPage() {
-  const [marketId, setMarketId] = useState("");
+  const [eventId, setEventId] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = () => {
-    if (!marketId.trim()) return;
-    navigate(`/market/${marketId.trim()}`);
+    if (!eventId.trim()) return;
+    navigate(`/event/${eventId.trim()}`);
   };
 
   return (
     <div style={pageStyle}>
       <div style={cardStyle}>
         <div style={titleStyle}>Fancy Market System</div>
-
-        <div style={sectionTitleStyle}>Create New Market:</div>
+        <div style={subTitleStyle}>Enter Event ID</div>
 
         <div style={rowStyle}>
-          <div style={labelCellStyle}>Market ID</div>
+          <div style={labelStyle}>Event ID</div>
 
           <input
             type="text"
-            value={marketId}
-            onChange={(e) => setMarketId(e.target.value)}
-            placeholder="Enter market ID"
+            value={eventId}
+            onChange={(e) => setEventId(e.target.value)}
+            placeholder="Enter event ID"
             style={inputStyle}
           />
 
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!marketId.trim()}
+            disabled={!eventId.trim()}
             style={{
               ...buttonStyle,
-              background: marketId.trim() ? "#2563eb" : "#9ca3af",
-              cursor: marketId.trim() ? "pointer" : "not-allowed"
+              opacity: !eventId.trim() ? 0.6 : 1,
+              cursor: !eventId.trim() ? "not-allowed" : "pointer"
             }}
           >
             Submit
           </button>
-        </div>
-
-        <div style={hintStyle}>
-          Enter a valid market ID to open the market calculation screen.
         </div>
       </div>
     </div>
@@ -54,34 +49,33 @@ const pageStyle = {
   minHeight: "100vh",
   background: "#f3f4f6",
   display: "flex",
-  alignItems: "center",
   justifyContent: "center",
+  alignItems: "center",
   padding: "24px",
   boxSizing: "border-box"
 };
 
 const cardStyle = {
   width: "100%",
-  maxWidth: "980px",
+  maxWidth: "900px",
   background: "#ffffff",
-  border: "1px solid #cbd5e1",
-  borderRadius: "10px",
-  padding: "28px",
-  boxShadow: "0 4px 14px rgba(0,0,0,0.08)"
+  border: "1px solid #d1d5db",
+  borderRadius: "12px",
+  padding: "28px"
 };
 
 const titleStyle = {
   fontSize: "30px",
-  fontWeight: "700",
+  fontWeight: "800",
   color: "#111827",
-  marginBottom: "24px"
+  marginBottom: "10px"
 };
 
-const sectionTitleStyle = {
+const subTitleStyle = {
   fontSize: "20px",
   fontWeight: "700",
-  color: "#1f2937",
-  marginBottom: "16px"
+  color: "#374151",
+  marginBottom: "18px"
 };
 
 const rowStyle = {
@@ -91,7 +85,7 @@ const rowStyle = {
   alignItems: "center"
 };
 
-const labelCellStyle = {
+const labelStyle = {
   fontSize: "28px",
   fontWeight: "700",
   color: "#111827"
@@ -102,24 +96,19 @@ const inputStyle = {
   boxSizing: "border-box",
   padding: "12px 14px",
   fontSize: "24px",
-  border: "1px solid #94a3b8",
-  borderRadius: "4px",
+  border: "1px solid #9ca3af",
+  borderRadius: "6px",
   background: "#dcead4"
 };
 
 const buttonStyle = {
   border: "none",
+  background: "#2563eb",
   color: "#ffffff",
-  borderRadius: "6px",
-  padding: "12px 18px",
-  fontSize: "22px",
+  borderRadius: "8px",
+  padding: "12px 16px",
+  fontSize: "20px",
   fontWeight: "700"
-};
-
-const hintStyle = {
-  marginTop: "14px",
-  fontSize: "14px",
-  color: "#6b7280"
 };
 
 export default CreateMarketPage;
