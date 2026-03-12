@@ -23,14 +23,26 @@ function CalculationPage() {
   });
 
   useEffect(() => {
+    let intervalId;
+
     const fetchData = async () => {
       try {
         setFetchError("");
         const response = await api.get(`/markets/fancies/${eventId}`);
-        const fetchedRows = Array.isArray(response.data.data) ? response.data.data : [];
+        const fetchedRows = Array.isArray(response.data.data)
+          ? response.data.data
+          : [];
+
         setRows(fetchedRows);
 
-        if (fetchedRows.length > 0) {
+        if (selected) {
+          const updatedSelected = fetchedRows.find(
+            (r) => r.marketId === selected.marketId
+          );
+          if (updatedSelected) {
+            setSelected(updatedSelected);
+          }
+        } else if (fetchedRows.length > 0) {
           setSelected(fetchedRows[0]);
         }
       } catch (error) {
@@ -39,7 +51,12 @@ function CalculationPage() {
     };
 
     fetchData();
-  }, [eventId]);
+    intervalId = setInterval(fetchData, 300);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [eventId, selected?.marketId]);
 
   useEffect(() => {
     if (!selected) return;
@@ -138,7 +155,6 @@ function CalculationPage() {
   };
 
   const handleCalculate = async () => {
-    console.log("CALCULATE CLICKED");
     try {
       setSubmitError("");
 
@@ -231,10 +247,10 @@ function CalculationPage() {
               <table style={tableStyle}>
                 <thead>
                   <tr>
-                    <th style={thStyle}>Runner</th>
-                    <th style={thStyle}>Back</th>
-                    <th style={thStyle}>Lay</th>
-                    <th style={thStyle}>Action</th>
+                    <th style={{ ...thStyle, width: "42%" }}>Runner</th>
+                    <th style={{ ...thStyle, width: "19%" }}>Back</th>
+                    <th style={{ ...thStyle, width: "19%" }}>Lay</th>
+                    <th style={{ ...thStyle, width: "20%" }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -253,12 +269,26 @@ function CalculationPage() {
                         : row.LayPrice1 != null
                         ? row.LayPrice1
                         : "N/A";
+                    const rowBackSize =
+                      row.BackSize1 != null ? row.BackSize1 : "N/A";
+                    const rowLaySize =
+                      row.LaySize1 != null ? row.LaySize1 : "N/A";
 
                     return (
                       <tr key={row.id || row.marketId}>
                         <td style={tdStyle}>{rowRunnerName}</td>
-                        <td style={tdStyle}>{rowBack}</td>
-                        <td style={tdStyle}>{rowLay}</td>
+                        <td style={tdStyle}>
+                          <div style={miniBackBoxStyle}>
+                            <div style={miniPriceStyle}>{rowBack}</div>
+                            <div style={miniSizeStyle}>Size: {rowBackSize}</div>
+                          </div>
+                        </td>
+                        <td style={tdStyle}>
+                          <div style={miniLayBoxStyle}>
+                            <div style={miniPriceStyle}>{rowLay}</div>
+                            <div style={miniSizeStyle}>Size: {rowLaySize}</div>
+                          </div>
+                        </td>
                         <td style={tdStyle}>
                           <button
                             type="button"
@@ -515,12 +545,12 @@ const pageContentStyle = {
   display: "flex",
   flexDirection: "column",
   gap: "24px",
-  maxWidth: "1400px"
+  maxWidth: "1500px"
 };
 
 const topSectionStyle = {
   display: "grid",
-  gridTemplateColumns: "380px 1fr",
+  gridTemplateColumns: "520px 1fr",
   gap: "32px",
   alignItems: "start"
 };
@@ -644,24 +674,64 @@ const sourceSizeStyle = {
 };
 
 const tableWrapStyle = {
-  overflowX: "auto"
+  overflowX: "hidden"
 };
 
 const tableStyle = {
   width: "100%",
-  borderCollapse: "collapse"
+  borderCollapse: "collapse",
+  tableLayout: "fixed"
 };
 
 const thStyle = {
-  padding: "12px",
+  padding: "12px 8px",
   textAlign: "center",
   background: "#f3f4f6",
-  borderBottom: "1px solid #e5e7eb"
+  borderBottom: "1px solid #e5e7eb",
+  whiteSpace: "nowrap"
 };
 
 const tdStyle = {
-  padding: "12px",
-  borderBottom: "1px solid #e5e7eb"
+  padding: "10px 8px",
+  borderBottom: "1px solid #e5e7eb",
+  verticalAlign: "middle",
+  wordBreak: "break-word"
+};
+
+const miniBackBoxStyle = {
+  background: "#cfe2ff",
+  border: "1px solid #bfdbfe",
+  borderRadius: "10px",
+  padding: "8px 6px",
+  textAlign: "center",
+  width: "100%",
+  boxSizing: "border-box"
+};
+
+const miniLayBoxStyle = {
+  background: "#ffd1dc",
+  border: "1px solid #f9a8d4",
+  borderRadius: "10px",
+  padding: "8px 6px",
+  textAlign: "center",
+  width: "100%",
+  boxSizing: "border-box"
+};
+
+const miniPriceStyle = {
+  fontSize: "15px",
+  fontWeight: "800",
+  color: "#111827",
+  lineHeight: "1.2"
+};
+
+const miniSizeStyle = {
+  fontSize: "10px",
+  fontWeight: "700",
+  color: "#374151",
+  marginTop: "4px",
+  lineHeight: "1.2",
+  whiteSpace: "nowrap"
 };
 
 const useButtonStyle = {
