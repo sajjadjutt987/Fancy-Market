@@ -20,7 +20,7 @@ async function fetchMarketDetailsByMarketId(marketId) {
         status: "OPEN",
         market_id: marketId
       },
-      timeout: 5000
+      timeout: 3000
     });
 
     return {

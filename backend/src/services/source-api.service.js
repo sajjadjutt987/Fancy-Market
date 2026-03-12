@@ -5,8 +5,7 @@ async function fetchFancySessionsByEventId(eventId) {
 
   const response = await axios.get(`${baseUrl}/sessions`, {
     params: {
-      eventId,
-      status: true
+      eventId
     },
     timeout: 8000
   });

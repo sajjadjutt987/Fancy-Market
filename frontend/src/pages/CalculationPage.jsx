@@ -70,8 +70,12 @@ function CalculationPage() {
 
     const currentMean =
       form.sourceSide === "Lay"
-        ? (Number.isFinite(sourceLay) ? sourceLay : initialMean)
-        : (Number.isFinite(sourceBack) ? sourceBack : initialMean);
+        ? Number.isFinite(sourceLay)
+          ? sourceLay
+          : initialMean
+        : Number.isFinite(sourceBack)
+        ? sourceBack
+        : initialMean;
 
     if (
       !Number.isFinite(initialMean) ||
@@ -156,203 +160,211 @@ function CalculationPage() {
       {fetchError ? <div style={errorStyle}>{fetchError}</div> : null}
       {submitError ? <div style={errorStyle}>{submitError}</div> : null}
 
-      <div style={layoutStyle}>
-        <div style={leftCardStyle}>
-          <div style={sectionTitleStyle}>Fancy List</div>
+      <div style={pageContentStyle}>
+        <div style={topSectionStyle}>
+          <div style={leftCardStyle}>
+            <div style={sectionTitleStyle}>Fancy List</div>
 
-          <div style={tableWrapStyle}>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Runner</th>
-                  <th style={thStyle}>Back</th>
-                  <th style={thStyle}>Lay</th>
-                  <th style={thStyle}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => {
-                  const isSelected = selected?.marketId === row.marketId;
-
-                  return (
-                    <tr key={row.id || row.marketId}>
-                      <td style={tdStyle}>{row.runnerName}</td>
-                      <td style={tdStyle}>{row.sourceBack ?? "N/A"}</td>
-                      <td style={tdStyle}>{row.sourceLay ?? "N/A"}</td>
-                      <td style={tdStyle}>
-                        <button
-                          type="button"
-                          onClick={() => handleUseRow(row)}
-                          style={isSelected ? selectedButtonStyle : useButtonStyle}
-                        >
-                          {isSelected ? "Selected" : "Use"}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={sectionTitleStyle}>Source Section</div>
-
-          {selected ? (
-            <div style={sourceBoxStyle}>
-              <div style={sourceNameStyle}>{selected.runnerName || "N/A"}</div>
-              <div style={sourceRatesStyle}>
-                <div>Back: {selected.sourceBack ?? "N/A"}</div>
-                <div>Lay: {selected.sourceLay ?? "N/A"}</div>
-              </div>
-            </div>
-          ) : (
-            <div style={emptyStyle}>No source selected</div>
-          )}
-
-          <div style={sectionTitleStyle}>Calculation Fields</div>
-
-          <FieldRow
-            label="Source Side"
-            field={
-              <select
-                name="sourceSide"
-                value={form.sourceSide}
-                onChange={handleChange}
-                style={inputStyle}
-              >
-                <option value="Back">Back</option>
-                <option value="Lay">Lay</option>
-              </select>
-            }
-          />
-
-          <FieldRow
-            label="Margin"
-            field={
-              <input
-                name="margin"
-                value={form.margin}
-                onChange={handleChange}
-                style={inputStyle}
-              />
-            }
-          />
-
-          <FieldRow
-            label="Title"
-            field={
-              <input
-                name="title"
-                value={form.title}
-                onChange={handleChange}
-                style={inputStyle}
-              />
-            }
-          />
-
-          <FieldRow
-            label="Runs"
-            field={
-              <input
-                name="runs"
-                value={form.runs}
-                onChange={handleChange}
-                style={inputStyle}
-              />
-            }
-          />
-
-          <FieldRow
-            label="Initial Mean"
-            field={
-              <input
-                name="initialMean"
-                value={form.initialMean}
-                onChange={handleChange}
-                style={inputStyle}
-              />
-            }
-          />
-
-          <FieldRow
-            label="Initial Std Dev"
-            field={
-              <input
-                name="initialStdDev"
-                value={form.initialStdDev}
-                onChange={handleChange}
-                style={inputStyle}
-              />
-            }
-          />
-
-          <FieldRow
-            label="Rate Diff"
-            field={
-              <input
-                name="rateDiff"
-                value={form.rateDiff}
-                onChange={handleChange}
-                style={inputStyle}
-              />
-            }
-          />
-
-          <FieldRow
-            label="Current Mean"
-            field={<StaticValue value={calculatedPreview.currentMean || "N/A"} />}
-          />
-
-          <FieldRow
-            label="Current Std Dev"
-            field={<StaticValue value={calculatedPreview.currentStdDev || "N/A"} />}
-          />
-
-          <button
-            type="button"
-            onClick={handleCalculate}
-            disabled={!selected}
-            style={{
-              ...calcButtonStyle,
-              opacity: !selected ? 0.6 : 1
-            }}
-          >
-            Calculate
-          </button>
-        </div>
-
-        <div style={rightCardStyle}>
-          <div style={sectionTitleStyle}>Final Display</div>
-
-          {result ? (
-            <div style={resultBoxStyle}>
-              <div style={resultTitleStyle}>{result.displayTitle}</div>
-
-              <table style={resultTableStyle}>
+            <div style={tableWrapStyle}>
+              <table style={tableStyle}>
                 <thead>
                   <tr>
-                    <th style={thStyle}></th>
+                    <th style={thStyle}>Runner</th>
                     <th style={thStyle}>Back</th>
                     <th style={thStyle}>Lay</th>
+                    <th style={thStyle}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td style={labelTdStyle}>Yes</td>
-                    <td style={backTdStyle}>{result.backYes}</td>
-                    <td style={layTdStyle}>{result.layYes}</td>
-                  </tr>
-                  <tr>
-                    <td style={labelTdStyle}>No</td>
-                    <td style={backTdStyle}>{result.backNo}</td>
-                    <td style={layTdStyle}>{result.layNo}</td>
-                  </tr>
+                  {rows.map((row) => {
+                    const isSelected = selected?.marketId === row.marketId;
+
+                    return (
+                      <tr key={row.id || row.marketId}>
+                        <td style={tdStyle}>{row.runnerName}</td>
+                        <td style={tdStyle}>{row.sourceBack ?? "N/A"}</td>
+                        <td style={tdStyle}>{row.sourceLay ?? "N/A"}</td>
+                        <td style={tdStyle}>
+                          <button
+                            type="button"
+                            onClick={() => handleUseRow(row)}
+                            style={isSelected ? selectedButtonStyle : useButtonStyle}
+                          >
+                            {isSelected ? "Selected" : "Use"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-          ) : (
-            <div style={emptyStyle}>Calculate to view final display</div>
-          )}
+          </div>
+
+          <div style={rightPanelStyle}>
+            <div style={rightCardStyle}>
+              <div style={sectionTitleStyle}>Source Section</div>
+
+              {selected ? (
+                <div style={sourceBoxStyle}>
+                  <div style={sourceNameStyle}>{selected.runnerName || "N/A"}</div>
+                  <div style={sourceRatesStyle}>
+                    <div>Back: {selected.sourceBack ?? "N/A"}</div>
+                    <div>Lay: {selected.sourceLay ?? "N/A"}</div>
+                  </div>
+                </div>
+              ) : (
+                <div style={emptyStyle}>No source selected</div>
+              )}
+            </div>
+
+            <div style={rightCardStyle}>
+              <div style={sectionTitleStyle}>Calculation Fields</div>
+
+              <FieldRow
+                label="Source Side"
+                field={
+                  <select
+                    name="sourceSide"
+                    value={form.sourceSide}
+                    onChange={handleChange}
+                    style={inputStyle}
+                  >
+                    <option value="Back">Back</option>
+                    <option value="Lay">Lay</option>
+                  </select>
+                }
+              />
+
+              <FieldRow
+                label="Margin"
+                field={
+                  <input
+                    name="margin"
+                    value={form.margin}
+                    onChange={handleChange}
+                    style={inputStyle}
+                  />
+                }
+              />
+
+              <FieldRow
+                label="Title"
+                field={
+                  <input
+                    name="title"
+                    value={form.title}
+                    onChange={handleChange}
+                    style={inputStyle}
+                  />
+                }
+              />
+
+              <FieldRow
+                label="Runs"
+                field={
+                  <input
+                    name="runs"
+                    value={form.runs}
+                    onChange={handleChange}
+                    style={inputStyle}
+                  />
+                }
+              />
+
+              <FieldRow
+                label="Initial Mean"
+                field={
+                  <input
+                    name="initialMean"
+                    value={form.initialMean}
+                    onChange={handleChange}
+                    style={inputStyle}
+                  />
+                }
+              />
+
+              <FieldRow
+                label="Initial Std Dev"
+                field={
+                  <input
+                    name="initialStdDev"
+                    value={form.initialStdDev}
+                    onChange={handleChange}
+                    style={inputStyle}
+                  />
+                }
+              />
+
+              <FieldRow
+                label="Rate Diff"
+                field={
+                  <input
+                    name="rateDiff"
+                    value={form.rateDiff}
+                    onChange={handleChange}
+                    style={inputStyle}
+                  />
+                }
+              />
+
+              <FieldRow
+                label="Current Mean"
+                field={<StaticValue value={calculatedPreview.currentMean || "N/A"} />}
+              />
+
+              <FieldRow
+                label="Current Std Dev"
+                field={<StaticValue value={calculatedPreview.currentStdDev || "N/A"} />}
+              />
+
+              <button
+                type="button"
+                onClick={handleCalculate}
+                disabled={!selected}
+                style={{
+                  ...calcButtonStyle,
+                  opacity: !selected ? 0.6 : 1
+                }}
+              >
+                Calculate
+              </button>
+            </div>
+
+            <div style={rightCardStyle}>
+              <div style={sectionTitleStyle}>Final Display</div>
+
+              {result ? (
+                <div style={resultBoxStyle}>
+                  <div style={resultTitleStyle}>{result.displayTitle}</div>
+
+                  <table style={resultTableStyle}>
+                    <thead>
+                      <tr>
+                        <th style={thStyle}></th>
+                        <th style={thStyle}>Back</th>
+                        <th style={thStyle}>Lay</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={labelTdStyle}>Yes</td>
+                        <td style={backTdStyle}>{result.backYes}</td>
+                        <td style={layTdStyle}>{result.layYes}</td>
+                      </tr>
+                      <tr>
+                        <td style={labelTdStyle}>No</td>
+                        <td style={backTdStyle}>{result.backNo}</td>
+                        <td style={layTdStyle}>{result.layNo}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={emptyStyle}>Calculate to view final display</div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -400,11 +412,18 @@ const titleStyle = {
   color: "#111827"
 };
 
-const layoutStyle = {
-  display: "grid",
-  gridTemplateColumns: "1fr 360px",
+const pageContentStyle = {
+  display: "flex",
+  flexDirection: "column",
   gap: "24px",
-  maxWidth: "1200px"
+  maxWidth: "1400px"
+};
+
+const topSectionStyle = {
+  display: "grid",
+  gridTemplateColumns: "380px 1fr",
+  gap: "32px",
+  alignItems: "start"
 };
 
 const leftCardStyle = {
@@ -414,12 +433,17 @@ const leftCardStyle = {
   padding: "18px"
 };
 
+const rightPanelStyle = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "24px"
+};
+
 const rightCardStyle = {
   background: "#ffffff",
   border: "1px solid #d1d5db",
   borderRadius: "12px",
-  padding: "18px",
-  alignSelf: "start"
+  padding: "18px"
 };
 
 const sectionTitleStyle = {
@@ -433,8 +457,7 @@ const sourceBoxStyle = {
   background: "#f9fafb",
   border: "1px solid #e5e7eb",
   borderRadius: "10px",
-  padding: "14px",
-  marginBottom: "14px"
+  padding: "14px"
 };
 
 const sourceNameStyle = {
@@ -448,12 +471,12 @@ const sourceRatesStyle = {
   display: "flex",
   gap: "20px",
   fontWeight: "600",
-  color: "#374151"
+  color: "#374151",
+  flexWrap: "wrap"
 };
 
 const tableWrapStyle = {
-  overflowX: "auto",
-  marginBottom: "16px"
+  overflowX: "auto"
 };
 
 const tableStyle = {
@@ -494,7 +517,7 @@ const selectedButtonStyle = {
 
 const rowStyle = {
   display: "grid",
-  gridTemplateColumns: "160px 1fr",
+  gridTemplateColumns: "140px 1fr",
   gap: "12px",
   alignItems: "start",
   marginBottom: "12px"
@@ -536,7 +559,8 @@ const calcButtonStyle = {
   padding: "12px 16px",
   fontSize: "16px",
   fontWeight: "800",
-  cursor: "pointer"
+  cursor: "pointer",
+  width: "100%"
 };
 
 const errorStyle = {
