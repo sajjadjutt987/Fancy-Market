@@ -44,14 +44,24 @@ function CalculationPage() {
   useEffect(() => {
     if (!selected) return;
 
+    const selectedRunnerName =
+      selected.runnerName || selected.RunnerName || "";
+
+    const selectedBackValue =
+      selected.sourceBack != null
+        ? selected.sourceBack
+        : selected.BackPrice1 != null
+        ? selected.BackPrice1
+        : "";
+
     setForm((prev) => ({
       ...prev,
-      title: selected.runnerName || prev.title || "",
+      title: selectedRunnerName || prev.title || "",
       initialMean:
         prev.initialMean && prev.initialMean !== ""
           ? prev.initialMean
-          : selected.sourceBack != null
-          ? String(selected.sourceBack)
+          : selectedBackValue !== ""
+          ? String(selectedBackValue)
           : ""
     }));
 
@@ -64,9 +74,18 @@ function CalculationPage() {
     const initialStdDev = Number(form.initialStdDev);
 
     const sourceBack =
-      selected?.sourceBack != null ? Number(selected.sourceBack) : NaN;
+      selected?.sourceBack != null
+        ? Number(selected.sourceBack)
+        : selected?.BackPrice1 != null
+        ? Number(selected.BackPrice1)
+        : NaN;
+
     const sourceLay =
-      selected?.sourceLay != null ? Number(selected.sourceLay) : NaN;
+      selected?.sourceLay != null
+        ? Number(selected.sourceLay)
+        : selected?.LayPrice1 != null
+        ? Number(selected.LayPrice1)
+        : NaN;
 
     const currentMean =
       form.sourceSide === "Lay"
@@ -101,7 +120,9 @@ function CalculationPage() {
     form.initialMean,
     form.initialStdDev,
     selected?.sourceBack,
-    selected?.sourceLay
+    selected?.sourceLay,
+    selected?.BackPrice1,
+    selected?.LayPrice1
   ]);
 
   const handleChange = (e) => {
@@ -148,6 +169,47 @@ function CalculationPage() {
     }
   };
 
+  const orderedRows = [
+    ...(selected
+      ? rows.filter((r) => r.marketId === selected.marketId)
+      : []),
+    ...rows.filter((r) => !selected || r.marketId !== selected.marketId)
+  ];
+
+  const selectedRunnerName =
+    selected?.runnerName || selected?.RunnerName || "N/A";
+
+  const selectedBackPrice =
+    selected?.sourceBack != null
+      ? selected.sourceBack
+      : selected?.BackPrice1 != null
+      ? selected.BackPrice1
+      : "N/A";
+
+  const selectedLayPrice =
+    selected?.sourceLay != null
+      ? selected.sourceLay
+      : selected?.LayPrice1 != null
+      ? selected.LayPrice1
+      : "N/A";
+
+  const selectedBackSize =
+    selected?.BackSize1 != null ? selected.BackSize1 : "N/A";
+
+  const selectedLaySize =
+    selected?.LaySize1 != null ? selected.LaySize1 : "N/A";
+
+  const gameStatusText = (selected?.GameStatus || "").trim();
+  const normalizedGameStatus = gameStatusText.toLowerCase();
+
+  const isSuspended =
+    normalizedGameStatus.includes("suspend") ||
+    normalizedGameStatus.includes("suspended");
+
+  const isBallRunning =
+    normalizedGameStatus.includes("ball") &&
+    normalizedGameStatus.includes("running");
+
   return (
     <div style={pageStyle}>
       <div style={topBarStyle}>
@@ -176,14 +238,27 @@ function CalculationPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => {
+                  {orderedRows.map((row) => {
                     const isSelected = selected?.marketId === row.marketId;
+                    const rowRunnerName = row.runnerName || row.RunnerName || "N/A";
+                    const rowBack =
+                      row.sourceBack != null
+                        ? row.sourceBack
+                        : row.BackPrice1 != null
+                        ? row.BackPrice1
+                        : "N/A";
+                    const rowLay =
+                      row.sourceLay != null
+                        ? row.sourceLay
+                        : row.LayPrice1 != null
+                        ? row.LayPrice1
+                        : "N/A";
 
                     return (
                       <tr key={row.id || row.marketId}>
-                        <td style={tdStyle}>{row.runnerName}</td>
-                        <td style={tdStyle}>{row.sourceBack ?? "N/A"}</td>
-                        <td style={tdStyle}>{row.sourceLay ?? "N/A"}</td>
+                        <td style={tdStyle}>{rowRunnerName}</td>
+                        <td style={tdStyle}>{rowBack}</td>
+                        <td style={tdStyle}>{rowLay}</td>
                         <td style={tdStyle}>
                           <button
                             type="button"
@@ -207,10 +282,28 @@ function CalculationPage() {
 
               {selected ? (
                 <div style={sourceBoxStyle}>
-                  <div style={sourceNameStyle}>{selected.runnerName || "N/A"}</div>
-                  <div style={sourceRatesStyle}>
-                    <div>Back: {selected.sourceBack ?? "N/A"}</div>
-                    <div>Lay: {selected.sourceLay ?? "N/A"}</div>
+                  <div style={sourceHeaderStyle}>
+                    <div style={sourceNameStyle}>{selectedRunnerName}</div>
+
+                    {isSuspended ? (
+                      <div style={suspendedBadgeStyle}>Suspended</div>
+                    ) : isBallRunning ? (
+                      <div style={ballRunningBadgeStyle}>Ball Running</div>
+                    ) : null}
+                  </div>
+
+                  <div style={sourceRatesGridStyle}>
+                    <div style={sourceRateItemStyle}>
+                      <div style={sourceRateLabelStyle}>Back</div>
+                      <div style={sourceBackValueStyle}>{selectedBackPrice}</div>
+                      <div style={sourceSizeStyle}>Size: {selectedBackSize}</div>
+                    </div>
+
+                    <div style={sourceRateItemStyle}>
+                      <div style={sourceRateLabelStyle}>Lay</div>
+                      <div style={sourceLayValueStyle}>{selectedLayPrice}</div>
+                      <div style={sourceSizeStyle}>Size: {selectedLaySize}</div>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -221,102 +314,108 @@ function CalculationPage() {
             <div style={rightCardStyle}>
               <div style={sectionTitleStyle}>Calculation Fields</div>
 
-              <FieldRow
-                label="Source Side"
-                field={
-                  <select
-                    name="sourceSide"
-                    value={form.sourceSide}
-                    onChange={handleChange}
-                    style={inputStyle}
-                  >
-                    <option value="Back">Back</option>
-                    <option value="Lay">Lay</option>
-                  </select>
-                }
-              />
+              <div style={twoFieldRowStyle}>
+                <FieldRowCompact
+                  label="Source Side"
+                  field={
+                    <select
+                      name="sourceSide"
+                      value={form.sourceSide}
+                      onChange={handleChange}
+                      style={inputStyle}
+                    >
+                      <option value="Back">Back</option>
+                      <option value="Lay">Lay</option>
+                    </select>
+                  }
+                />
 
-              <FieldRow
-                label="Margin"
-                field={
-                  <input
-                    name="margin"
-                    value={form.margin}
-                    onChange={handleChange}
-                    style={inputStyle}
-                  />
-                }
-              />
+                <FieldRowCompact
+                  label="Margin"
+                  field={
+                    <input
+                      name="margin"
+                      value={form.margin}
+                      onChange={handleChange}
+                      style={inputStyle}
+                    />
+                  }
+                />
+              </div>
 
-              <FieldRow
-                label="Title"
-                field={
-                  <input
-                    name="title"
-                    value={form.title}
-                    onChange={handleChange}
-                    style={inputStyle}
-                  />
-                }
-              />
+              <div style={fullWidthRowStyle}>
+                <div style={compactLabelStyle}>Title</div>
+                <input
+                  name="title"
+                  value={form.title}
+                  onChange={handleChange}
+                  style={inputStyle}
+                />
+              </div>
 
-              <FieldRow
-                label="Runs"
-                field={
-                  <input
-                    name="runs"
-                    value={form.runs}
-                    onChange={handleChange}
-                    style={inputStyle}
-                  />
-                }
-              />
+              <div style={twoFieldRowStyle}>
+                <FieldRowCompact
+                  label="Runs"
+                  field={
+                    <input
+                      name="runs"
+                      value={form.runs}
+                      onChange={handleChange}
+                      style={inputStyle}
+                    />
+                  }
+                />
 
-              <FieldRow
-                label="Initial Mean"
-                field={
-                  <input
-                    name="initialMean"
-                    value={form.initialMean}
-                    onChange={handleChange}
-                    style={inputStyle}
-                  />
-                }
-              />
+                <FieldRowCompact
+                  label="Initial Mean"
+                  field={
+                    <input
+                      name="initialMean"
+                      value={form.initialMean}
+                      onChange={handleChange}
+                      style={inputStyle}
+                    />
+                  }
+                />
+              </div>
 
-              <FieldRow
-                label="Initial Std Dev"
-                field={
-                  <input
-                    name="initialStdDev"
-                    value={form.initialStdDev}
-                    onChange={handleChange}
-                    style={inputStyle}
-                  />
-                }
-              />
+              <div style={twoFieldRowStyle}>
+                <FieldRowCompact
+                  label="Initial Std Dev"
+                  field={
+                    <input
+                      name="initialStdDev"
+                      value={form.initialStdDev}
+                      onChange={handleChange}
+                      style={inputStyle}
+                    />
+                  }
+                />
 
-              <FieldRow
-                label="Rate Diff"
-                field={
-                  <input
-                    name="rateDiff"
-                    value={form.rateDiff}
-                    onChange={handleChange}
-                    style={inputStyle}
-                  />
-                }
-              />
+                <FieldRowCompact
+                  label="Rate Diff"
+                  field={
+                    <input
+                      name="rateDiff"
+                      value={form.rateDiff}
+                      onChange={handleChange}
+                      style={inputStyle}
+                    />
+                  }
+                />
+              </div>
 
-              <FieldRow
-                label="Current Mean"
-                field={<StaticValue value={calculatedPreview.currentMean || "N/A"} />}
-              />
+              <div style={twoFieldRowStyle}>
+                <FieldRowCompact
+                  label="Current Mean"
+                  field={<StaticValue value={calculatedPreview.currentMean || "N/A"} />}
+                />
 
-              <FieldRow
-                label="Current Std Dev"
-                field={<StaticValue value={calculatedPreview.currentStdDev || "N/A"} />}
-              />
+                <FieldRowCompact
+                  label="Current Std Dev"
+                  field={<StaticValue value={calculatedPreview.currentStdDev || "N/A"} />}
+                />
+              </div>
 
               <button
                 type="button"
@@ -371,11 +470,11 @@ function CalculationPage() {
   );
 }
 
-function FieldRow({ label, field }) {
+function FieldRowCompact({ label, field }) {
   return (
-    <div style={rowStyle}>
-      <div style={labelStyle}>{label}</div>
-      <div style={fieldStyle}>{field}</div>
+    <div style={compactFieldWrapStyle}>
+      <div style={compactLabelStyle}>{label}</div>
+      <div>{field}</div>
     </div>
   );
 }
@@ -460,19 +559,88 @@ const sourceBoxStyle = {
   padding: "14px"
 };
 
+const sourceHeaderStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "12px",
+  marginBottom: "12px",
+  flexWrap: "wrap"
+};
+
 const sourceNameStyle = {
   fontWeight: "700",
   fontSize: "18px",
-  marginBottom: "8px",
   color: "#111827"
 };
 
-const sourceRatesStyle = {
+const suspendedBadgeStyle = {
+  background: "#dc2626",
+  color: "#ffffff",
+  fontWeight: "800",
+  fontSize: "13px",
+  padding: "8px 12px",
+  borderRadius: "999px"
+};
+
+const ballRunningBadgeStyle = {
+  background: "#f59e0b",
+  color: "#111827",
+  fontWeight: "800",
+  fontSize: "13px",
+  padding: "8px 12px",
+  borderRadius: "999px"
+};
+
+const sourceRatesGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "14px"
+};
+
+const sourceRateItemStyle = {
   display: "flex",
-  gap: "20px",
-  fontWeight: "600",
-  color: "#374151",
-  flexWrap: "wrap"
+  flexDirection: "column",
+  gap: "6px"
+};
+
+const sourceRateLabelStyle = {
+  fontSize: "14px",
+  fontWeight: "700",
+  color: "#374151"
+};
+
+const sourceBackValueStyle = {
+  padding: "12px 14px",
+  textAlign: "center",
+  background: "#cfe2ff",
+  fontWeight: "800",
+  fontSize: "22px",
+  borderRadius: "10px",
+  color: "#111827",
+  border: "1px solid #bfdbfe"
+};
+
+const sourceLayValueStyle = {
+  padding: "12px 14px",
+  textAlign: "center",
+  background: "#ffd1dc",
+  fontWeight: "800",
+  fontSize: "22px",
+  borderRadius: "10px",
+  color: "#111827",
+  border: "1px solid #f9a8d4"
+};
+
+const sourceSizeStyle = {
+  textAlign: "center",
+  fontSize: "14px",
+  fontWeight: "700",
+  color: "#4b5563",
+  background: "#ffffff",
+  border: "1px solid #e5e7eb",
+  borderRadius: "8px",
+  padding: "8px 10px"
 };
 
 const tableWrapStyle = {
@@ -515,21 +683,30 @@ const selectedButtonStyle = {
   fontWeight: "700"
 };
 
-const rowStyle = {
+const twoFieldRowStyle = {
   display: "grid",
-  gridTemplateColumns: "140px 1fr",
-  gap: "12px",
-  alignItems: "start",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "16px",
   marginBottom: "12px"
 };
 
-const labelStyle = {
-  paddingTop: "10px",
+const fullWidthRowStyle = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+  marginBottom: "12px"
+};
+
+const compactFieldWrapStyle = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px"
+};
+
+const compactLabelStyle = {
   fontWeight: "700",
   color: "#111827"
 };
-
-const fieldStyle = {};
 
 const inputStyle = {
   width: "100%",
